@@ -1,7 +1,7 @@
 {
-  "name": "@anthropic/google-scholar-mcp",
-  "version": "1.0.0",
-  "description": "A comprehensive Model Context Protocol (MCP) server for Google Scholar - search publications, authors, citations, and more",
+  "name": "@dihannahdi/google-scholar-mcp",
+  "version": "1.1.0",
+  "description": "A comprehensive Model Context Protocol (MCP) server for Google Scholar - search publications, authors, citations, download papers, and more",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
@@ -26,14 +26,20 @@
     "publications",
     "citations",
     "ai",
-    "llm"
+    "llm",
+    "claude",
+    "anthropic"
   ],
-  "author": "Your Name",
+  "author": "dihannahdi",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/google-scholar-mcp.git"
+    "url": "https://github.com/dihannahdi/google-scholar-mcp.git"
   },
+  "bugs": {
+    "url": "https://github.com/dihannahdi/google-scholar-mcp/issues"
+  },
+  "homepage": "https://github.com/dihannahdi/google-scholar-mcp#readme",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.0",
     "axios": "^1.7.0",

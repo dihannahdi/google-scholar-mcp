@@ -9,6 +9,9 @@ import {
   getAuthorProfile,
   getCitations,
   generateBibTeX,
+  getRelatedArticles,
+  getAllVersions,
+  advancedSearch,
 } from '../scraper/scholar.js';
 import { TOOL_NAMES } from './definitions.js';
 import {
@@ -16,6 +19,11 @@ import {
   ScholarError,
   ScholarErrorCode,
 } from '../types/index.js';
+import {
+  downloadPaper,
+  listStoredPapers,
+  readPaperContent,
+} from '../utils/storage.js';
 
 // =============================================================================
 // Types
@@ -59,6 +67,42 @@ interface GenerateBibtexArgs {
   url?: string;
 }
 
+// New tool argument interfaces
+interface GetRelatedArticlesArgs {
+  clusterId: string;
+  numResults?: number;
+}
+
+interface GetAllVersionsArgs {
+  clusterId: string;
+}
+
+interface DownloadPaperArgs {
+  title: string;
+  authors: string[];
+  pdfUrl?: string;
+  year?: number;
+  venue?: string;
+  clusterId?: string;
+}
+
+interface ReadPaperArgs {
+  paperId: string;
+}
+
+interface AdvancedSearchArgs {
+  query: string;
+  author?: string;
+  source?: string;
+  yearStart?: number;
+  yearEnd?: number;
+  language?: string;
+  includePatents?: boolean;
+  reviewArticlesOnly?: boolean;
+  numResults?: number;
+  sortBy?: 'relevance' | 'date';
+}
+
 // =============================================================================
 // Main Handler
 // =============================================================================
@@ -86,6 +130,25 @@ export async function handleToolCall(
       
       case TOOL_NAMES.GENERATE_BIBTEX:
         return handleGenerateBibtex(args as unknown as GenerateBibtexArgs);
+      
+      // New tool handlers
+      case TOOL_NAMES.GET_RELATED_ARTICLES:
+        return await handleGetRelatedArticles(args as unknown as GetRelatedArticlesArgs);
+      
+      case TOOL_NAMES.GET_ALL_VERSIONS:
+        return await handleGetAllVersions(args as unknown as GetAllVersionsArgs);
+      
+      case TOOL_NAMES.DOWNLOAD_PAPER:
+        return await handleDownloadPaper(args as unknown as DownloadPaperArgs);
+      
+      case TOOL_NAMES.LIST_PAPERS:
+        return handleListPapers();
+      
+      case TOOL_NAMES.READ_PAPER:
+        return handleReadPaper(args as unknown as ReadPaperArgs);
+      
+      case TOOL_NAMES.ADVANCED_SEARCH:
+        return await handleAdvancedSearch(args as unknown as AdvancedSearchArgs);
       
       default:
         return {
@@ -295,6 +358,236 @@ function handleGenerateBibtex(args: GenerateBibtexArgs): ToolResult {
     content: [{
       type: 'text',
       text: `# BibTeX Entry\n\n\`\`\`bibtex\n${bibtex}\n\`\`\``,
+    }],
+  };
+}
+
+// =============================================================================
+// New Tool Handlers
+// =============================================================================
+
+/**
+ * Handle get_related_articles tool
+ */
+async function handleGetRelatedArticles(args: GetRelatedArticlesArgs): Promise<ToolResult> {
+  const publications = await getRelatedArticles(args.clusterId, args.numResults || 10);
+  
+  let output = `# Related Articles for Cluster ID: ${args.clusterId}\n\n`;
+  output += `**Found:** ${publications.length} related papers\n\n`;
+  output += formatPublicationResults(publications, 'Related Articles');
+  
+  return {
+    content: [{
+      type: 'text',
+      text: output,
+    }],
+  };
+}
+
+/**
+ * Handle get_all_versions tool
+ */
+async function handleGetAllVersions(args: GetAllVersionsArgs): Promise<ToolResult> {
+  const versions = await getAllVersions(args.clusterId);
+  
+  let output = `# All Versions for Cluster ID: ${args.clusterId}\n\n`;
+  output += `**Found:** ${versions.length} versions\n\n`;
+  
+  versions.forEach((pub, index) => {
+    output += `## Version ${index + 1}: ${pub.title}\n\n`;
+    if (pub.authors.length > 0) {
+      output += `**Authors:** ${pub.authors.join(', ')}\n`;
+    }
+    if (pub.venue) {
+      output += `**Venue:** ${pub.venue}`;
+      if (pub.year) output += ` (${pub.year})`;
+      output += '\n';
+    }
+    if (pub.url) {
+      output += `**URL:** ${pub.url}\n`;
+    }
+    if (pub.pdfUrl) {
+      output += `**PDF:** ${pub.pdfUrl}\n`;
+    }
+    output += '\n---\n\n';
+  });
+  
+  return {
+    content: [{
+      type: 'text',
+      text: output,
+    }],
+  };
+}
+
+/**
+ * Handle download_paper tool
+ */
+async function handleDownloadPaper(args: DownloadPaperArgs): Promise<ToolResult> {
+  const publication: Publication = {
+    title: args.title,
+    authors: args.authors,
+    year: args.year,
+    venue: args.venue,
+    pdfUrl: args.pdfUrl,
+    clusterId: args.clusterId,
+  };
+  
+  const stored = await downloadPaper(publication);
+  
+  let output = `# Paper Downloaded Successfully\n\n`;
+  output += `**Paper ID:** ${stored.id}\n`;
+  output += `**Title:** ${stored.title}\n`;
+  output += `**Authors:** ${stored.authors.join(', ')}\n`;
+  if (stored.year) output += `**Year:** ${stored.year}\n`;
+  output += `**Downloaded:** ${stored.downloadedAt}\n`;
+  output += `**Metadata Path:** ${stored.metadataPath}\n`;
+  if (stored.pdfPath) {
+    output += `**PDF Path:** ${stored.pdfPath}\n`;
+  } else {
+    output += `**Note:** PDF was not available for download.\n`;
+  }
+  
+  return {
+    content: [{
+      type: 'text',
+      text: output,
+    }],
+  };
+}
+
+/**
+ * Handle list_papers tool
+ */
+function handleListPapers(): ToolResult {
+  const papers = listStoredPapers();
+  
+  if (papers.length === 0) {
+    return {
+      content: [{
+        type: 'text',
+        text: '# Downloaded Papers\n\nNo papers have been downloaded yet. Use `download_paper` to save papers locally.',
+      }],
+    };
+  }
+  
+  let output = `# Downloaded Papers\n\n`;
+  output += `**Total:** ${papers.length} papers\n\n`;
+  
+  papers.forEach((paper, index) => {
+    output += `## ${index + 1}. ${paper.title}\n\n`;
+    output += `**Paper ID:** \`${paper.id}\`\n`;
+    output += `**Authors:** ${paper.authors.join(', ')}\n`;
+    if (paper.year) output += `**Year:** ${paper.year}\n`;
+    if (paper.venue) output += `**Venue:** ${paper.venue}\n`;
+    output += `**Downloaded:** ${paper.downloadedAt}\n`;
+    output += `**Has PDF:** ${paper.pdfPath ? 'Yes' : 'No'}\n`;
+    output += '\n---\n\n';
+  });
+  
+  return {
+    content: [{
+      type: 'text',
+      text: output,
+    }],
+  };
+}
+
+/**
+ * Handle read_paper tool
+ */
+function handleReadPaper(args: ReadPaperArgs): ToolResult {
+  const result = readPaperContent(args.paperId);
+  
+  if (!result) {
+    return {
+      content: [{
+        type: 'text',
+        text: `Paper not found: ${args.paperId}\n\nUse \`list_papers\` to see available papers.`,
+      }],
+      isError: true,
+    };
+  }
+  
+  const { metadata, pdfPath, hasPdf } = result;
+  
+  let output = `# Paper: ${metadata.title}\n\n`;
+  output += `## Metadata\n\n`;
+  output += `**Title:** ${metadata.title}\n`;
+  output += `**Authors:** ${metadata.authors.join(', ')}\n`;
+  if (metadata.year) output += `**Year:** ${metadata.year}\n`;
+  if (metadata.venue) output += `**Venue:** ${metadata.venue}\n`;
+  if (metadata.citationCount) output += `**Citations:** ${metadata.citationCount}\n`;
+  if (metadata.abstract) output += `\n**Abstract:**\n${metadata.abstract}\n`;
+  output += `\n**Downloaded:** ${metadata.downloadedAt}\n`;
+  
+  output += `\n## Files\n\n`;
+  if (hasPdf && pdfPath) {
+    output += `**PDF Available:** Yes\n`;
+    output += `**PDF Path:** ${pdfPath}\n`;
+  } else {
+    output += `**PDF Available:** No\n`;
+  }
+  
+  if (metadata.url) {
+    output += `\n## Links\n\n`;
+    output += `**Original URL:** ${metadata.url}\n`;
+  }
+  
+  return {
+    content: [{
+      type: 'text',
+      text: output,
+    }],
+  };
+}
+
+/**
+ * Handle advanced_search tool
+ */
+async function handleAdvancedSearch(args: AdvancedSearchArgs): Promise<ToolResult> {
+  const result = await advancedSearch({
+    query: args.query,
+    author: args.author,
+    source: args.source,
+    yearStart: args.yearStart,
+    yearEnd: args.yearEnd,
+    language: args.language,
+    includePatents: args.includePatents,
+    reviewArticlesOnly: args.reviewArticlesOnly,
+    numResults: args.numResults || 10,
+    sortBy: args.sortBy || 'relevance',
+  });
+  
+  let output = `# Advanced Search Results\n\n`;
+  output += `**Query:** ${result.query}\n`;
+  
+  // Show active filters
+  const filters: string[] = [];
+  if (args.author) filters.push(`Author: ${args.author}`);
+  if (args.source) filters.push(`Source: ${args.source}`);
+  if (args.yearStart || args.yearEnd) {
+    filters.push(`Years: ${args.yearStart || 'any'}-${args.yearEnd || 'any'}`);
+  }
+  if (args.language && args.language !== 'en') filters.push(`Language: ${args.language}`);
+  if (args.includePatents) filters.push('Including patents');
+  if (args.reviewArticlesOnly) filters.push('Review articles only');
+  
+  if (filters.length > 0) {
+    output += `**Filters:** ${filters.join(', ')}\n`;
+  }
+  
+  output += `**Results found:** ${result.publications.length}\n\n`;
+  output += formatPublicationResults(result.publications, result.query);
+  
+  if (result.hasMore) {
+    output += `\n*More results available.*\n`;
+  }
+  
+  return {
+    content: [{
+      type: 'text',
+      text: output,
     }],
   };
 }

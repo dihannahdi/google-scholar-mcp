@@ -146,6 +146,133 @@ server.tool(
   }
 );
 
+// Tool: get_related_articles
+server.tool(
+  TOOL_NAMES.GET_RELATED_ARTICLES,
+  'Find articles related to a specific publication. Discover similar research papers and alternative perspectives.',
+  {
+    clusterId: z.string().describe('Google Scholar cluster ID of the original publication'),
+    numResults: z.number().min(1).max(20).default(10).describe('Number of related papers to return'),
+  },
+  async (args) => {
+    const result = await handleToolCall(TOOL_NAMES.GET_RELATED_ARTICLES, args);
+    return {
+      content: result.content.map(c => ({
+        type: c.type as 'text',
+        text: c.text,
+      })),
+      isError: result.isError,
+    };
+  }
+);
+
+// Tool: get_all_versions
+server.tool(
+  TOOL_NAMES.GET_ALL_VERSIONS,
+  'Get all versions/variants of a publication. Find preprints, published versions, and open access copies.',
+  {
+    clusterId: z.string().describe('Google Scholar cluster ID of the publication'),
+  },
+  async (args) => {
+    const result = await handleToolCall(TOOL_NAMES.GET_ALL_VERSIONS, args);
+    return {
+      content: result.content.map(c => ({
+        type: c.type as 'text',
+        text: c.text,
+      })),
+      isError: result.isError,
+    };
+  }
+);
+
+// Tool: download_paper
+server.tool(
+  TOOL_NAMES.DOWNLOAD_PAPER,
+  'Download and store a paper locally for offline access. Saves paper metadata and PDF if available.',
+  {
+    title: z.string().describe('Paper title'),
+    authors: z.array(z.string()).describe('List of author names'),
+    pdfUrl: z.string().optional().describe('Direct URL to PDF'),
+    year: z.number().optional().describe('Publication year'),
+    venue: z.string().optional().describe('Journal or conference name'),
+    clusterId: z.string().optional().describe('Google Scholar cluster ID'),
+  },
+  async (args) => {
+    const result = await handleToolCall(TOOL_NAMES.DOWNLOAD_PAPER, args);
+    return {
+      content: result.content.map(c => ({
+        type: c.type as 'text',
+        text: c.text,
+      })),
+      isError: result.isError,
+    };
+  }
+);
+
+// Tool: list_papers
+server.tool(
+  TOOL_NAMES.LIST_PAPERS,
+  'List all locally downloaded papers in your research library.',
+  {},
+  async () => {
+    const result = await handleToolCall(TOOL_NAMES.LIST_PAPERS, {});
+    return {
+      content: result.content.map(c => ({
+        type: c.type as 'text',
+        text: c.text,
+      })),
+      isError: result.isError,
+    };
+  }
+);
+
+// Tool: read_paper
+server.tool(
+  TOOL_NAMES.READ_PAPER,
+  'Read metadata and access a locally stored paper.',
+  {
+    paperId: z.string().describe('Local paper ID (from list_papers)'),
+  },
+  async (args) => {
+    const result = await handleToolCall(TOOL_NAMES.READ_PAPER, args);
+    return {
+      content: result.content.map(c => ({
+        type: c.type as 'text',
+        text: c.text,
+      })),
+      isError: result.isError,
+    };
+  }
+);
+
+// Tool: advanced_search
+server.tool(
+  TOOL_NAMES.ADVANCED_SEARCH,
+  'Perform an advanced search with full Google Scholar parameters: language, patents, review articles, and more.',
+  {
+    query: z.string().describe('Main search query'),
+    author: z.string().optional().describe('Filter by author name'),
+    source: z.string().optional().describe('Filter by source/journal name'),
+    yearStart: z.number().optional().describe('Publications from this year onwards'),
+    yearEnd: z.number().optional().describe('Publications up to this year'),
+    language: z.string().default('en').describe('Language code (e.g., "en", "es", "zh-CN")'),
+    includePatents: z.boolean().default(false).describe('Include patents in results'),
+    reviewArticlesOnly: z.boolean().default(false).describe('Only return review articles'),
+    numResults: z.number().min(1).max(20).default(10).describe('Number of results'),
+    sortBy: z.enum(['relevance', 'date']).default('relevance').describe('Sort order'),
+  },
+  async (args) => {
+    const result = await handleToolCall(TOOL_NAMES.ADVANCED_SEARCH, args);
+    return {
+      content: result.content.map(c => ({
+        type: c.type as 'text',
+        text: c.text,
+      })),
+      isError: result.isError,
+    };
+  }
+);
+
 // =============================================================================
 // Register Prompts
 // =============================================================================
@@ -246,6 +373,133 @@ Analysis steps:
 4. Summarize how this publication has influenced subsequent research
 
 Please provide a comprehensive citation analysis.`,
+          },
+        },
+      ],
+    };
+  }
+);
+
+// New advanced prompts
+server.prompt(
+  'deep_paper_analysis',
+  'Perform a comprehensive analysis of a research paper',
+  {
+    clusterId: z.string().describe('Google Scholar cluster ID of the paper'),
+  },
+  async ({ clusterId }) => {
+    return {
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Please perform a deep analysis of the paper with cluster ID: ${clusterId}
+
+Follow this comprehensive workflow:
+
+## Step 1: Gather Paper Information
+- Use get_all_versions to find all versions of the paper
+- Note which version is the canonical/published version
+
+## Step 2: Citation Context
+- Use get_citations to see how this paper has been cited
+- Identify the most influential papers that cite this work
+
+## Step 3: Related Work
+- Use get_related_articles to find similar papers
+- Understand the paper's position in the broader research landscape
+
+## Step 4: Author Context
+- For the main authors, use get_author_profile to understand their research trajectory
+- Identify if this paper represents their main research focus
+
+## Analysis Framework:
+1. **Executive Summary**: Brief overview of the paper's contribution
+2. **Research Context**: How does this fit in the field?
+3. **Methodology Analysis**: Key methods and their significance
+4. **Impact Assessment**: Citation metrics and influence
+5. **Research Trajectory**: How has follow-up research evolved?
+6. **Gaps & Future Directions**: Unexplored areas
+
+Please provide a thorough academic analysis.`,
+          },
+        },
+      ],
+    };
+  }
+);
+
+server.prompt(
+  'research_synthesis',
+  'Synthesize research across multiple papers on a topic',
+  {
+    topic: z.string().describe('Research topic to synthesize'),
+    numPapers: z.number().default(10).describe('Number of papers to analyze'),
+  },
+  async ({ topic, numPapers }) => {
+    return {
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Please synthesize research on the topic: "${topic}"
+
+Use ${numPapers} papers to create a comprehensive synthesis.
+
+## Research Steps:
+1. Use search_publications to find ${numPapers} relevant papers on this topic
+2. For the most cited papers, use get_citations to understand their influence
+3. Use get_related_articles to explore the research space
+4. Identify key authors and use get_author_profile for context
+
+## Synthesis Framework:
+1. **Overview**: Main research themes and questions in this area
+2. **Key Findings**: Major discoveries and conclusions across papers
+3. **Methodological Approaches**: Common and novel methods used
+4. **Points of Agreement**: Consensus findings across the literature
+5. **Points of Disagreement**: Conflicting results or interpretations
+6. **Research Gaps**: Underexplored areas and open questions
+7. **Future Directions**: Emerging trends and opportunities
+
+Provide a structured synthesis that would help someone understand the current state of research.`,
+          },
+        },
+      ],
+    };
+  }
+);
+
+server.prompt(
+  'methodology_comparison',
+  'Compare methodologies across papers in a research area',
+  {
+    field: z.string().describe('Research field or methodology to compare'),
+  },
+  async ({ field }) => {
+    return {
+      messages: [
+        {
+          role: 'user',
+          content: {
+            type: 'text',
+            text: `Please compare research methodologies in the field: "${field}"
+
+## Steps:
+1. Use search_publications to find papers in this field
+2. For key methodology papers, use get_citations to find papers that build on each method
+3. Identify leading researchers using search_author and get_author_profile
+
+## Comparison Framework:
+1. **Methodology Overview**: List the main methodological approaches
+2. **Strengths & Weaknesses**: Pros and cons of each approach
+3. **Use Cases**: When is each methodology most appropriate?
+4. **Adoption & Popularity**: Citation metrics and trends
+5. **Evolution**: How have methodologies evolved over time?
+6. **Recommendations**: Which methodology for which scenario?
+
+Provide a practical comparison that helps researchers choose appropriate methods.`,
           },
         },
       ],

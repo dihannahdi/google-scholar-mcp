@@ -29,6 +29,9 @@ import {
   buildAuthorSearchUrl,
   buildAuthorProfileUrl,
   buildCitationUrl,
+  buildRelatedUrl,
+  buildVersionsUrl,
+  buildAdvancedSearchUrl,
   cleanText,
   extractYear,
   extractCitationCount,
@@ -594,4 +597,150 @@ export function generateBibTeX(publication: Publication): string {
   bibtex += `}`;
   
   return bibtex;
+}
+
+// =============================================================================
+// Related Articles
+// =============================================================================
+
+/**
+ * Get articles related to a specific publication
+ */
+export async function getRelatedArticles(
+  clusterId: string,
+  numResults = 10
+): Promise<Publication[]> {
+  if (!clusterId?.trim()) {
+    throw new ScholarError(
+      'Cluster ID is required for finding related articles',
+      ScholarErrorCode.INVALID_INPUT
+    );
+  }
+  
+  const url = buildRelatedUrl(clusterId);
+  const html = await fetchPage(url);
+  const $ = cheerio.load(html);
+  
+  const publications = parsePublicationResults($);
+  publications.forEach(pub => {
+    pub.source = 'RELATED';
+  });
+  
+  return publications.slice(0, numResults);
+}
+
+// =============================================================================
+// All Versions
+// =============================================================================
+
+/**
+ * Get all versions/variants of a publication
+ */
+export async function getAllVersions(
+  clusterId: string
+): Promise<Publication[]> {
+  if (!clusterId?.trim()) {
+    throw new ScholarError(
+      'Cluster ID is required for finding all versions',
+      ScholarErrorCode.INVALID_INPUT
+    );
+  }
+  
+  const url = buildVersionsUrl(clusterId);
+  const html = await fetchPage(url);
+  const $ = cheerio.load(html);
+  
+  const publications = parsePublicationResults($);
+  publications.forEach(pub => {
+    pub.source = 'VERSION';
+    pub.clusterId = clusterId;
+  });
+  
+  return publications;
+}
+
+// =============================================================================
+// Advanced Search
+// =============================================================================
+
+export interface AdvancedSearchOptions {
+  query: string;
+  author?: string;
+  source?: string;
+  yearStart?: number;
+  yearEnd?: number;
+  language?: string;
+  includePatents?: boolean;
+  reviewArticlesOnly?: boolean;
+  numResults?: number;
+  sortBy?: 'relevance' | 'date';
+}
+
+/**
+ * Perform an advanced search with full Google Scholar parameters
+ */
+export async function advancedSearch(
+  options: AdvancedSearchOptions
+): Promise<PublicationSearchResult> {
+  if (!options.query?.trim()) {
+    throw new ScholarError(
+      'Search query is required',
+      ScholarErrorCode.INVALID_INPUT
+    );
+  }
+  
+  const { numResults = 10 } = options;
+  const publications: Publication[] = [];
+  let currentStart = 0;
+  const resultsPerPage = 10;
+  
+  while (publications.length < numResults) {
+    const url = buildAdvancedSearchUrl({
+      query: options.query,
+      author: options.author,
+      source: options.source,
+      yearStart: options.yearStart,
+      yearEnd: options.yearEnd,
+      language: options.language,
+      includePatents: options.includePatents,
+      reviewArticlesOnly: options.reviewArticlesOnly,
+      start: currentStart,
+      sortBy: options.sortBy,
+    });
+    
+    const html = await fetchPage(url);
+    const $ = cheerio.load(html);
+    
+    const results = parsePublicationResults($);
+    results.forEach(pub => {
+      pub.source = 'ADVANCED_SEARCH';
+    });
+    
+    if (results.length === 0) break;
+    
+    publications.push(...results);
+    currentStart += resultsPerPage;
+    
+    if (publications.length < numResults) {
+      await sleep(1000);
+    }
+  }
+  
+  return {
+    query: options.query,
+    filters: {
+      author: options.author,
+      source: options.source,
+      yearRange: options.yearStart || options.yearEnd
+        ? `${options.yearStart || 'any'}-${options.yearEnd || 'any'}`
+        : undefined,
+      language: options.language,
+      includePatents: options.includePatents,
+      reviewArticlesOnly: options.reviewArticlesOnly,
+      sortBy: options.sortBy,
+    },
+    publications: publications.slice(0, numResults),
+    hasMore: publications.length >= numResults,
+    nextStartIndex: currentStart,
+  };
 }

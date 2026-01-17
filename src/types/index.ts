@@ -44,7 +44,7 @@ export interface Publication {
   /** eprint URL (e.g., arXiv) */
   eprintUrl?: string;
   /** Source of the result */
-  source?: 'PUBLICATION_SEARCH' | 'AUTHOR_PROFILE' | 'CITATION';
+  source?: 'PUBLICATION_SEARCH' | 'AUTHOR_PROFILE' | 'CITATION' | 'RELATED' | 'VERSION' | 'ADVANCED_SEARCH';
 }
 
 /**
@@ -218,7 +218,11 @@ export interface PublicationSearchResult {
   /** Search filters applied */
   filters?: {
     author?: string;
+    source?: string;
     yearRange?: string;
+    language?: string;
+    includePatents?: boolean;
+    reviewArticlesOnly?: boolean;
     sortBy?: string;
   };
   /** List of publications */

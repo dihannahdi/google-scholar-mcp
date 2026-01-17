@@ -1,14 +1,26 @@
 # Google Scholar MCP Server
 
+<div align="center">
+
+[![npm version](https://img.shields.io/npm/v/@dihannahdi/google-scholar-mcp.svg)](https://www.npmjs.com/package/@dihannahdi/google-scholar-mcp)
 [![MCP](https://img.shields.io/badge/MCP-1.0-blue.svg)](https://modelcontextprotocol.io/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
 
-A comprehensive Model Context Protocol (MCP) server for Google Scholar. This server enables AI assistants like Claude to search for academic publications, find researchers, analyze citations, and more.
+**The most comprehensive Google Scholar MCP server for AI assistants**
+
+[Installation](#-installation) • [Quick Start](#-quick-start) • [Tools](#-tools) • [API Reference](#-api-reference) • [Contributing](#-contributing)
+
+</div>
+
+---
+
+A powerful Model Context Protocol (MCP) server that connects AI assistants like Claude to Google Scholar. Search academic publications, find researchers, analyze citations, download papers, and perform advanced research workflows.
 
 ## 🌟 Features
 
-### Tools
+### Tools (11 Total)
 
 | Tool | Description |
 |------|-------------|
@@ -17,36 +29,54 @@ A comprehensive Model Context Protocol (MCP) server for Google Scholar. This ser
 | `get_author_profile` | Get detailed author info including h-index, publications, and coauthors |
 | `get_citations` | Find papers that cite a specific publication |
 | `generate_bibtex` | Generate BibTeX entries for citations |
+| `get_related_articles` | Find related articles for a publication |
+| `get_all_versions` | Get all available versions of a paper |
+| `download_paper` | Download and store papers locally for offline access |
+| `list_papers` | List all locally stored papers |
+| `read_paper` | Read content of a stored paper |
+| `advanced_search` | Advanced search with language, patent, and date filters |
 
-### Prompts
+### Prompts (6 Total)
 
 | Prompt | Description |
 |--------|-------------|
 | `literature_review` | Structured approach to conducting literature reviews |
 | `find_expert` | Find leading researchers in a specific field |
 | `citation_analysis` | Analyze the citation impact of a publication |
+| `deep_paper_analysis` | Comprehensive multi-step paper analysis workflow |
+| `research_synthesis` | Synthesize research across multiple papers |
+| `methodology_comparison` | Compare methodologies across research papers |
 
 ### Key Advantages
 
-- **Comprehensive Coverage**: Search publications, authors, citations all in one server
-- **Rich Metadata**: Get abstracts, citation counts, h-index, coauthors, and more
+- **11 Powerful Tools**: Search, citations, related articles, versions, downloads & more
+- **Advanced Search**: Filter by language, patents, review articles, and more
+- **Local Paper Storage**: Download and cache papers for offline access
+- **Intelligent Caching**: Reduce redundant requests with TTL-based caching
+- **Rich Metadata**: Abstracts, citation counts, h-index, coauthors, and more
 - **Rate Limiting**: Built-in protection against Google Scholar blocking
 - **Error Handling**: Graceful handling of rate limits and CAPTCHAs
 - **BibTeX Support**: Generate proper academic citations
-- **Prompts Included**: Pre-built workflows for common research tasks
+- **Advanced Prompts**: Pre-built workflows for deep paper analysis and research synthesis
 
 ## 📦 Installation
 
-### Via npm (when published)
+### Via Smithery (Recommended)
 
 ```bash
-npm install -g @anthropic/google-scholar-mcp
+npx -y @smithery/cli install @dihannahdi/google-scholar-mcp --client claude
+```
+
+### Via npm
+
+```bash
+npm install -g @dihannahdi/google-scholar-mcp
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/google-scholar-mcp.git
+git clone https://github.com/dihannahdi/google-scholar-mcp.git
 cd google-scholar-mcp
 npm install
 npm run build
@@ -71,29 +101,48 @@ npm run dev
 
 Add to your `claude_desktop_config.json`:
 
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
 ```json
 {
   "mcpServers": {
     "google-scholar": {
       "command": "node",
-      "args": ["/path/to/google-scholar-mcp/dist/index.js"]
+      "args": ["/path/to/google-scholar-mcp/dist/index.js"],
+      "env": {
+        "SCHOLAR_STORAGE_PATH": "~/.google-scholar-mcp/papers",
+        "SCHOLAR_RATE_LIMIT_MS": "2000",
+        "SCHOLAR_CACHE_ENABLED": "true",
+        "SCHOLAR_CACHE_TTL_MS": "3600000"
+      }
     }
   }
 }
 ```
 
-Or if using npx:
+Or using npx:
 
 ```json
 {
   "mcpServers": {
     "google-scholar": {
       "command": "npx",
-      "args": ["-y", "@anthropic/google-scholar-mcp"]
+      "args": ["-y", "@dihannahdi/google-scholar-mcp"]
     }
   }
 }
 ```
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SCHOLAR_STORAGE_PATH` | Path to store downloaded papers | `~/.google-scholar-mcp/papers` |
+| `SCHOLAR_RATE_LIMIT_MS` | Rate limit between requests (ms) | `2000` |
+| `SCHOLAR_CACHE_ENABLED` | Enable response caching | `true` |
+| `SCHOLAR_CACHE_TTL_MS` | Cache time-to-live (ms) | `3600000` (1 hour) |
+| `SCHOLAR_PROXY_URL` | Optional proxy URL | - |
 
 ## 📖 Usage Examples
 
@@ -232,6 +281,92 @@ Generate a BibTeX citation entry.
 **Returns:**
 - Formatted BibTeX entry
 
+### get_related_articles
+
+Find related articles for a given publication.
+
+**Parameters:**
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| clusterId | string | Yes | - | Google Scholar cluster ID |
+| numResults | number | No | 10 | Number of results (1-20) |
+
+**Returns:**
+- List of related publications with metadata
+
+### get_all_versions
+
+Get all available versions of a paper.
+
+**Parameters:**
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| clusterId | string | Yes | - | Google Scholar cluster ID |
+| numResults | number | No | 10 | Number of results (1-20) |
+
+**Returns:**
+- List of all versions (preprint, published, etc.)
+
+### download_paper
+
+Download and store a paper locally.
+
+**Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| url | string | Yes | URL to the paper (PDF, arXiv, etc.) |
+| filename | string | Yes | Name for the saved file |
+| metadata | object | No | Optional metadata (title, authors, year) |
+
+**Returns:**
+- Path to stored file and confirmation
+
+### list_papers
+
+List all locally stored papers.
+
+**Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| pattern | string | No | Optional filter pattern |
+
+**Returns:**
+- List of stored papers with metadata
+
+### read_paper
+
+Read the content of a stored paper.
+
+**Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| filename | string | Yes | Name of the stored file |
+
+**Returns:**
+- Paper content (text format)
+
+### advanced_search
+
+Advanced search with additional filters.
+
+**Parameters:**
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| query | string | Yes | - | Search query |
+| exactPhrase | string | No | - | Exact phrase to match |
+| withoutWords | string | No | - | Words to exclude |
+| author | string | No | - | Filter by author |
+| source | string | No | - | Filter by source/journal |
+| yearStart | number | No | - | Start year filter |
+| yearEnd | number | No | - | End year filter |
+| language | string | No | "en" | Language code |
+| includePatents | boolean | No | true | Include patents in results |
+| includeCitations | boolean | No | true | Include citations |
+| numResults | number | No | 10 | Number of results |
+
+**Returns:**
+- List of publications matching criteria
+
 ## 🛠️ Development
 
 ### Project Structure
@@ -240,17 +375,21 @@ Generate a BibTeX citation entry.
 google-scholar-mcp/
 ├── src/
 │   ├── index.ts          # MCP server entry point
+│   ├── config/
+│   │   └── index.ts      # Environment configuration
 │   ├── types/
 │   │   └── index.ts      # TypeScript type definitions
 │   ├── tools/
-│   │   ├── definitions.ts # Tool schemas
+│   │   ├── definitions.ts # Tool schemas (11 tools)
 │   │   ├── handlers.ts    # Tool implementation
 │   │   └── index.ts
 │   ├── scraper/
 │   │   ├── scholar.ts    # Google Scholar scraper
 │   │   └── index.ts
 │   └── utils/
-│       ├── helpers.ts    # Utility functions
+│       ├── helpers.ts    # URL builders, rate limiting
+│       ├── cache.ts      # In-memory caching
+│       ├── storage.ts    # Local paper storage
 │       └── index.ts
 ├── dist/                  # Compiled JavaScript
 ├── package.json

@@ -184,6 +184,84 @@ export function buildCitationUrl(params: {
   return url.toString();
 }
 
+/**
+ * Build related articles URL
+ */
+export function buildRelatedUrl(clusterId: string): string {
+  const url = new URL('/scholar', SCHOLAR_BASE_URL);
+  url.searchParams.set('q', `related:${clusterId}:scholar.google.com/`);
+  url.searchParams.set('hl', 'en');
+  return url.toString();
+}
+
+/**
+ * Build all versions URL
+ */
+export function buildVersionsUrl(clusterId: string): string {
+  const url = new URL('/scholar', SCHOLAR_BASE_URL);
+  url.searchParams.set('cluster', clusterId);
+  url.searchParams.set('hl', 'en');
+  return url.toString();
+}
+
+/**
+ * Build advanced search URL with all parameters
+ */
+export function buildAdvancedSearchUrl(params: {
+  query?: string;
+  author?: string;
+  source?: string;
+  yearStart?: number;
+  yearEnd?: number;
+  language?: string;
+  includePatents?: boolean;
+  reviewArticlesOnly?: boolean;
+  start?: number;
+  sortBy?: 'relevance' | 'date';
+}): string {
+  const url = new URL('/scholar', SCHOLAR_BASE_URL);
+  
+  // Build the query with advanced operators
+  let q = params.query || '';
+  
+  if (params.author) {
+    q = `author:"${params.author}" ${q}`.trim();
+  }
+  
+  if (params.source) {
+    q = `source:"${params.source}" ${q}`.trim();
+  }
+  
+  if (q) url.searchParams.set('q', q);
+  
+  // Year range
+  if (params.yearStart) url.searchParams.set('as_ylo', params.yearStart.toString());
+  if (params.yearEnd) url.searchParams.set('as_yhi', params.yearEnd.toString());
+  
+  // Language
+  url.searchParams.set('hl', params.language || 'en');
+  
+  // Patents: 0 = exclude, 7 = include
+  if (params.includePatents === true) {
+    url.searchParams.set('as_sdt', '7');
+  } else {
+    url.searchParams.set('as_sdt', '0');
+  }
+  
+  // Review articles only
+  if (params.reviewArticlesOnly) {
+    url.searchParams.set('as_rr', '1');
+  }
+  
+  // Pagination
+  if (params.start) url.searchParams.set('start', params.start.toString());
+  
+  // Sort by date
+  if (params.sortBy === 'date') url.searchParams.set('scisbd', '1');
+  
+  return url.toString();
+}
+
 // =============================================================================
 // Text Parsing Helpers
 // =============================================================================
