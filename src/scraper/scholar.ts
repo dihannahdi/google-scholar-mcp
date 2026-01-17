@@ -1,6 +1,7 @@
 /**
  * Google Scholar MCP - Web Scraper
  * Robust scraping functions for Google Scholar
+ * Falls back to SerpAPI when blocked
  */
 
 import axios, { AxiosError } from 'axios';
@@ -40,9 +41,13 @@ import {
   isRateLimited,
   isBlocked,
 } from '../utils/helpers.js';
+import * as serpapi from '../providers/serpapi.js';
 
 const SCHOLAR_BASE_URL = 'https://scholar.google.com';
 const MAX_RETRIES = 3;
+
+// Track if we should use SerpAPI fallback
+let useSerpApiFallback = false;
 
 // =============================================================================
 // HTTP Client
@@ -117,10 +122,17 @@ async function fetchPage(url: string, retryCount = 0): Promise<string> {
 
 /**
  * Search for publications on Google Scholar
+ * Falls back to SerpAPI when direct scraping is blocked
  */
 export async function searchPublications(
   options: PublicationSearchOptions
 ): Promise<PublicationSearchResult> {
+  // Check if we should use SerpAPI directly
+  if (useSerpApiFallback && serpapi.isSerpApiAvailable()) {
+    console.error('[Scholar] Using SerpAPI fallback for search');
+    return serpapi.searchPublicationsSerpApi(options);
+  }
+  
   const { numResults = 10, startIndex = 0 } = options;
   
   // Validate input
@@ -135,31 +147,43 @@ export async function searchPublications(
   let currentStart = startIndex;
   const resultsPerPage = 10;
   
-  while (publications.length < numResults) {
-    const url = buildSearchUrl({
-      query: options.query,
-      author: options.author,
-      yearStart: options.yearStart,
-      yearEnd: options.yearEnd,
-      start: currentStart,
-      sortBy: options.sortBy,
-      includePatents: options.includePatents,
-    });
-    
-    const html = await fetchPage(url);
-    const $ = cheerio.load(html);
-    
-    const results = parsePublicationResults($);
-    
-    if (results.length === 0) break;
-    
-    publications.push(...results);
-    currentStart += resultsPerPage;
-    
-    // Add delay between pages
-    if (publications.length < numResults) {
-      await sleep(1000);
+  try {
+    while (publications.length < numResults) {
+      const url = buildSearchUrl({
+        query: options.query,
+        author: options.author,
+        yearStart: options.yearStart,
+        yearEnd: options.yearEnd,
+        start: currentStart,
+        sortBy: options.sortBy,
+        includePatents: options.includePatents,
+      });
+      
+      const html = await fetchPage(url);
+      const $ = cheerio.load(html);
+      
+      const results = parsePublicationResults($);
+      
+      if (results.length === 0) break;
+      
+      publications.push(...results);
+      currentStart += resultsPerPage;
+      
+      // Add delay between pages
+      if (publications.length < numResults) {
+        await sleep(1000);
+      }
     }
+  } catch (error) {
+    // If blocked and SerpAPI is available, fallback
+    if (error instanceof ScholarError && 
+        (error.code === ScholarErrorCode.BLOCKED || error.code === ScholarErrorCode.RATE_LIMITED) &&
+        serpapi.isSerpApiAvailable()) {
+      console.error('[Scholar] Blocked by Google Scholar, switching to SerpAPI fallback');
+      useSerpApiFallback = true;
+      return serpapi.searchPublicationsSerpApi(options);
+    }
+    throw error;
   }
   
   return {

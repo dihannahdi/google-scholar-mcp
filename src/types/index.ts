@@ -39,12 +39,14 @@ export interface Publication {
   relatedUrl?: string;
   /** All versions link */
   versionsUrl?: string;
+  /** Google Scholar cites ID (for citation queries) */
+  citesId?: string;
   /** Number of versions */
   versionsCount?: number;
   /** eprint URL (e.g., arXiv) */
   eprintUrl?: string;
   /** Source of the result */
-  source?: 'PUBLICATION_SEARCH' | 'AUTHOR_PROFILE' | 'CITATION' | 'RELATED' | 'VERSION' | 'ADVANCED_SEARCH';
+  source?: 'PUBLICATION_SEARCH' | 'AUTHOR_PROFILE' | 'CITATION' | 'RELATED' | 'VERSION' | 'ADVANCED_SEARCH' | 'SERPAPI';
 }
 
 /**

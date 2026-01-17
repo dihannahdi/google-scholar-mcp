@@ -32,6 +32,17 @@ export interface ScholarConfig {
   // Request
   requestTimeout: number;
   maxRedirects: number;
+  
+  // SerpAPI (optional fallback)
+  serpApiKey?: string;
+  useSerpApiFallback: boolean;
+  
+  // User Agent Rotation
+  rotateUserAgent: boolean;
+  
+  // Request Jitter (randomize delays to appear more human)
+  enableJitter: boolean;
+  jitterMaxMs: number;
 }
 
 // =============================================================================
@@ -66,7 +77,7 @@ export const config: ScholarConfig = {
   storagePath: getEnvString('SCHOLAR_STORAGE_PATH', DEFAULT_STORAGE_PATH),
   
   // Rate Limiting Configuration
-  rateLimitMs: getEnvNumber('SCHOLAR_RATE_LIMIT_MS', 2000),
+  rateLimitMs: getEnvNumber('SCHOLAR_RATE_LIMIT_MS', 3000), // Increased to 3 seconds
   maxRetries: getEnvNumber('SCHOLAR_MAX_RETRIES', 3),
   backoffMultiplier: getEnvNumber('SCHOLAR_BACKOFF_MULTIPLIER', 2),
   
@@ -83,6 +94,17 @@ export const config: ScholarConfig = {
   // Request Configuration
   requestTimeout: getEnvNumber('SCHOLAR_REQUEST_TIMEOUT', 30000),
   maxRedirects: getEnvNumber('SCHOLAR_MAX_REDIRECTS', 5),
+  
+  // SerpAPI Fallback (optional - for production use)
+  serpApiKey: process.env.SERPAPI_KEY || process.env.SERP_API_KEY,
+  useSerpApiFallback: getEnvBoolean('SCHOLAR_USE_SERPAPI_FALLBACK', false),
+  
+  // User Agent Rotation
+  rotateUserAgent: getEnvBoolean('SCHOLAR_ROTATE_USER_AGENT', true),
+  
+  // Request Jitter (randomize delays to appear more human)
+  enableJitter: getEnvBoolean('SCHOLAR_ENABLE_JITTER', true),
+  jitterMaxMs: getEnvNumber('SCHOLAR_JITTER_MAX_MS', 2000),
 };
 
 // =============================================================================

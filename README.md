@@ -112,9 +112,11 @@ Add to your `claude_desktop_config.json`:
       "args": ["/path/to/google-scholar-mcp/dist/index.js"],
       "env": {
         "SCHOLAR_STORAGE_PATH": "~/.google-scholar-mcp/papers",
-        "SCHOLAR_RATE_LIMIT_MS": "2000",
+        "SCHOLAR_RATE_LIMIT_MS": "3000",
         "SCHOLAR_CACHE_ENABLED": "true",
-        "SCHOLAR_CACHE_TTL_MS": "3600000"
+        "SCHOLAR_CACHE_TTL_MS": "3600000",
+        "SERPAPI_KEY": "your_serpapi_key_here",
+        "SCHOLAR_USE_SERPAPI_FALLBACK": "true"
       }
     }
   }
@@ -139,10 +141,38 @@ Or using npx:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `SCHOLAR_STORAGE_PATH` | Path to store downloaded papers | `~/.google-scholar-mcp/papers` |
-| `SCHOLAR_RATE_LIMIT_MS` | Rate limit between requests (ms) | `2000` |
+| `SCHOLAR_RATE_LIMIT_MS` | Rate limit between requests (ms) | `3000` |
 | `SCHOLAR_CACHE_ENABLED` | Enable response caching | `true` |
 | `SCHOLAR_CACHE_TTL_MS` | Cache time-to-live (ms) | `3600000` (1 hour) |
 | `SCHOLAR_PROXY_URL` | Optional proxy URL | - |
+| `SERPAPI_KEY` | SerpAPI key for reliable fallback ([get free key](https://serpapi.com)) | - |
+| `SCHOLAR_USE_SERPAPI_FALLBACK` | Enable automatic SerpAPI fallback when blocked | `false` |
+| `SCHOLAR_ROTATE_USER_AGENT` | Rotate user agents to avoid detection | `true` |
+| `SCHOLAR_ENABLE_JITTER` | Add random delays between requests | `true` |
+| `SCHOLAR_JITTER_MAX_MS` | Maximum jitter delay in milliseconds | `2000` |
+
+### 🔐 SerpAPI Fallback (Recommended)
+
+Google Scholar aggressively blocks automated access. To ensure **100% uptime**, we recommend using [SerpAPI](https://serpapi.com/google-scholar-api) as a fallback:
+
+1. **Get a free API key** at [serpapi.com](https://serpapi.com) (100 free searches/month)
+2. **Set environment variables**:
+   ```bash
+   export SERPAPI_KEY="your_serpapi_key"
+   export SCHOLAR_USE_SERPAPI_FALLBACK="true"
+   ```
+
+**How it works:**
+- The server first attempts direct scraping (free, but may be blocked)
+- If blocked, it automatically falls back to SerpAPI (reliable, paid)
+- Results are normalized to the same format regardless of source
+
+**Benefits of SerpAPI:**
+- ✅ 100% uptime guarantee
+- ✅ No CAPTCHA or blocking issues
+- ✅ Handles all anti-bot measures
+- ✅ Rich structured data
+- ✅ Author profiles, citations, related articles
 
 ## 📖 Usage Examples
 
